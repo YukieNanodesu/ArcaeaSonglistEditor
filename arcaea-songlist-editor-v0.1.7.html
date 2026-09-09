@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arcaea Songlist 编辑器</title>
+<style>
+:root{
+  --bg:#0b0d10;--panel:#17191d;--panel2:#22252a;--line:#3a3e46;--text:#e8eaee;
+  --muted:#a0a6b1;--accent:#70a7ff;--danger:#ff6b7a;--ok:#63d6a0;--warn:#f2c76e;
+  --card:#292c31;--card-head:#363940;--field:#24272c;--input:#1a1c20;
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(135deg,#101216,#25282d 55%,#15171a);color:var(--text);font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body.light{--bg:#f4f6f8;--panel:#ffffff;--panel2:#eef1f5;--line:#ccd3dd;--text:#20242b;--muted:#667180;--card:#ffffff;--card-head:#f1f3f6;--field:#fafbfc;--input:#ffffff;background:linear-gradient(135deg,#f7f9fb,#e9edf2 55%,#f4f6f8)}
+header{position:sticky;top:0;z-index:5;background:rgba(23,25,29,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:14px 18px}
+body.light header{background:rgba(255,255,255,.94)}
+h1{margin:0;font-size:20px}
+.sub{color:var(--muted);font-size:12px;margin-top:3px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.toolbar>.filebtn,.toolbar>button:not(.theme-button){width:132px;text-align:center}
+.filterbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 18px 14px}
+.filterbar input{flex:1 1 220px;min-width:180px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);padding:8px 10px}
+.theme-button{position:absolute;top:14px;right:18px;width:38px;height:38px;padding:0;font-size:20px;line-height:1}
+button,.filebtn{border:1px solid var(--line);background:#30343b;color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover,.filebtn:hover{border-color:#62708a;background:#3a3f47}
+button:disabled{opacity:.45;cursor:not-allowed}
+body.light button,body.light .filebtn{background:#f5f7fa}
+body.light button:hover,body.light .filebtn:hover{background:#e8edf3}
+button.primary{background:#2864bf;border-color:#397adf}
+input[type=file]{display:none}
+#drop{margin:18px;border:1px dashed #657083;border-radius:14px;padding:24px;text-align:center;color:var(--muted);background:rgba(35,38,43,.72)}
+#drop.drag{border-color:var(--accent);background:rgba(35,75,140,.22);color:var(--text)}
+#status{margin:0 18px 14px;padding:9px 12px;border-radius:8px;background:rgba(28,31,36,.9);color:var(--muted);white-space:pre-wrap}
+#status.error{color:#ffd1d6;border:1px solid #6d2b38;background:#27141a}
+#status.ok{color:#baf2d8;border:1px solid #2c6853;background:#11251f}
+#cards{padding:0 18px 80px;display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:13px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.cardhead{padding:13px 14px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,var(--card-head),var(--card))}
+.card.collapsed>.fields{display:none}
+.card.collapsed>.cardhead{border-bottom-color:transparent}
+.cardheadrow{position:relative;padding-right:42px}
+.song-toggle{position:absolute;right:0;top:0;width:32px;height:32px;padding:0;border:0;background:transparent;color:var(--muted);font-size:18px}
+.song-toggle:hover{background:transparent;border-color:transparent;color:var(--text)}
+.title{font-weight:700;font-size:16px;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:12px;margin-top:3px}
+.fields{padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.field{border:1px solid #444951;border-radius:9px;padding:9px;margin:0;background:var(--field);min-width:0}
+.fields>.field{flex:0 0 100%;width:100%}
+.fields>.field.unchecked{flex:0 0 auto;width:max-content;max-width:100%}
+.fields>.field.field-collapsed,.difffield-fields>.field.field-collapsed{flex:0 0 auto;width:max-content;max-width:100%}
+.field.required{border-color:#394c6c}
+.field.invalid{border-color:#9b3b4a;background:#24151b}
+.field.unchecked{padding:7px 9px;min-height:38px}
+.field.unchecked .value,.field.unchecked .help,.field.unchecked .msg{display:none}
+.field.unchecked .type{display:none}
+.field.field-collapsed .value,.field.field-collapsed .help,.field.field-collapsed .msg{display:none}
+.field.field-collapsed .type{display:none}
+.row{display:flex;gap:8px;align-items:center}
+.field-toggle{border:0;background:transparent;color:var(--ui-text-muted);padding:0 2px;font-size:14px;line-height:1}
+.field-toggle:hover{background:transparent;border-color:transparent;color:var(--ui-text)}
+.check{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.check:disabled{opacity:.45}
+.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#b9c9e9;font-size:12px;word-break:break-all}
+.req{font-size:10px;color:#9fb4d7;border:1px solid #445775;border-radius:5px;padding:1px 4px}
+.type{font-size:10px;color:#7183a4;margin-left:auto}
+.value{width:100%;margin-top:7px;border:1px solid #4a505a;border-radius:7px;background:var(--input);color:var(--text);padding:7px 8px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace}
+.value:disabled{opacity:.5}
+textarea.value{min-height:68px;resize:vertical}
+.msg{font-size:11px;color:var(--danger);margin-top:5px;white-space:pre-wrap}
+.help{color:var(--muted);font-size:11px;margin-top:4px}
+.diffbox{flex:0 0 100%;width:100%;display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 0;padding:9px;border-left:2px solid #65728a;background:rgba(20,23,27,.28);border-radius:8px}
+.diffbox>.diffhead,.diffbox>.diff-actions{flex:0 0 100%;width:100%}
+.diffhead{color:#a9bee4;font-weight:600;margin-bottom:7px}
+.difficulty-card{flex:0 0 auto;width:max-content;max-width:100%;border:1px solid #4b5058;border-radius:9px;padding:8px;margin:0;background:rgba(35,38,43,.7)}
+.difficulty-card.open{display:flex;flex-wrap:wrap;gap:8px;flex:0 0 100%;width:100%}
+.difficulty-card.open>.diff-title-row,.difficulty-card.open>.difffield-fields,.difficulty-card.open>.optional-add{flex:0 0 100%;width:100%}
+.difficulty-card.collapsed .difffield-fields{display:none}
+.difficulty-card.open .difffield-fields{display:flex;flex-wrap:wrap;gap:8px}
+.difffield-fields>.field{flex:0 0 100%;width:100%}
+.difffield-fields>.field.unchecked{flex:0 0 auto;width:max-content;max-width:100%}
+.difficulty-card .field{margin:0}
+.diff-title-row{display:flex;align-items:center;gap:7px}
+.diff-toggle{flex:1;text-align:left;border:0;background:transparent;padding:2px;color:var(--text);font-weight:600}
+.diff-toggle:hover{background:transparent;border-color:transparent}
+.diff-delete{padding:4px 8px;font-size:12px}
+.diff-actions{display:flex;align-items:center;gap:8px;margin-top:8px}
+.diff-actions select{border:1px solid #4a505a;border-radius:7px;background:var(--input);color:var(--text);padding:7px 8px}
+.object-card{flex:0 0 100%;width:100%;border:1px solid #4b5058;border-radius:9px;padding:8px;background:rgba(35,38,43,.7)}
+.object-card.collapsed{flex:0 0 auto;width:max-content;max-width:100%}
+.object-card.collapsed .object-fields{display:none}
+.object-card.open .object-fields{display:block}
+.object-title-row{display:flex;align-items:center;gap:7px}
+.object-toggle{border:0;background:transparent;color:var(--text);font-weight:600;padding:2px;text-align:left}
+.object-toggle:hover{background:transparent;border-color:transparent}
+.object-fields{margin-top:8px}
+.object-fields>.field{width:100%}
+.optional-add{display:flex;gap:8px;align-items:center;flex:0 0 100%;width:100%}
+.optional-add select{border:1px solid #4a505a;border-radius:7px;background:var(--input);color:var(--text);padding:7px 8px;max-width:100%}
+.empty{padding:40px;text-align:center;color:var(--muted);grid-column:1/-1}
+@media(max-width:600px){#cards{grid-template-columns:1fr;padding:0 10px 60px}#drop{margin:10px}.toolbar{gap:6px}}
+#workspace{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;padding:0 18px 80px}
+#cards{padding:0;min-width:0}
+#issues{position:sticky;top:105px;align-self:start;max-height:calc(100vh - 125px);overflow:auto;background:rgba(17,24,43,.96);border:1px solid var(--line);border-radius:13px;padding:12px}
+.issue-title{font-weight:700;margin-bottom:8px}.issue-empty{color:var(--ok);font-size:12px}
+.issue{border:1px solid #6d2b38;background:#24151b;border-radius:8px;padding:8px;margin:7px 0;font-size:12px}
+.issue b{color:#ffd1d6}.cardselect{width:20px;height:20px;accent-color:var(--accent);margin:0 8px 0 0;vertical-align:middle}
+.cardselect.missing{accent-color:#6b7280}.cardheadrow{display:flex;align-items:flex-start;gap:8px}
+.cardnum{min-width:30px;color:#8fa4c9;font:12px ui-monospace,monospace;padding-top:2px}
+.match{font-size:11px;margin-top:7px;padding:5px 7px;border-radius:6px;background:#0c1424;color:var(--muted)}
+.match.bad{color:#ffd1d6;background:#2a151b}.match.ok{color:#baf2d8;background:#10251f}
+@media(max-width:900px){#workspace{grid-template-columns:1fr}#issues{position:static;max-height:none;order:-1}}
+body.light #issues,body.light .issue{background:var(--panel)}
+body.light .card,body.light .cardhead,body.light .field,body.light .difficulty-card,body.light .object-card,body.light #issues{background:var(--panel)}
+body.light .field,body.light .difficulty-card,body.light .object-card{border-color:#d3d9e2}
+body.light .field.invalid{background:#fff0f1}
+body.light .diffbox{background:#eef1f5}
+body.light .match{background:#f0f3f7;color:#667180}
+body.light .match.bad{background:#fff0f1;color:#a83240}
+body.light .match.ok{background:#edf9f3;color:#287651}
+body.light .diff-actions select{border-color:#c6ced9}
+body.light #drop{background:#f7f9fb;border-color:#b9c3d0}
+body.light #status{background:#f7f9fb}
+body.light .difficulty-card,body.light .object-card{background:#f8f9fb}
+body.light #status{color:#20242b}
+body.light #status.ok,body.light #status.error{color:#20242b}
+.modal-backdrop{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.48)}
+.modal-backdrop.open{display:flex}
+.modal{width:min(440px,100%);border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);box-shadow:0 18px 60px rgba(0,0,0,.35);padding:18px}
+.modal h2{font-size:16px;margin:0 0 8px}.modal p{margin:0;color:var(--muted);white-space:pre-wrap}.modal-actions{display:flex;justify-content:flex-end;margin-top:16px}
+.batch-modal{width:min(900px,100%);max-height:calc(100vh - 40px);overflow:auto}
+.batch-section{border:1px solid var(--line);border-radius:9px;padding:10px;margin:10px 0;background:var(--field)}
+.batch-section h3{margin:0 0 8px;font-size:14px}.batch-row{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:7px 0}.batch-row select,.batch-row input{min-width:120px;flex:1;border:1px solid #4a505a;border-radius:7px;background:var(--input);color:var(--text);padding:7px 8px}.batch-row .batch-op{flex:0 0 120px}.batch-row .batch-relation{flex:0 0 90px}.batch-remove{flex:0 0 auto;padding:6px 9px}.batch-hint{color:var(--muted);font-size:12px}.batch-actions{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:12px}
+/* Unified theme tokens and accessible contrast adjustments */
+:root{
+  --ui-bg:#151617;--ui-surface:#252627;--ui-surface-2:#303133;--ui-surface-3:#3a3b3d;
+  --ui-border:#47484a;--ui-border-strong:#5a5b5d;--ui-text:#f0f1f2;--ui-text-muted:#b2b4b7;--ui-text-subtle:#929497;
+  --ui-accent:#9bb5dc;--ui-accent-strong:#7895bf;--ui-accent-soft:#3b4656;
+  --ui-success:#9addbb;--ui-success-bg:#263b30;--ui-danger:#ffadb4;--ui-danger-bg:#452b30;
+  --ui-warning:#f0d899;--ui-input:#1f2021;--ui-check:#8ea9d0;--ui-check-disabled:#85878a;
+  --ui-shadow:rgba(0,0,0,.34);--ui-overlay:rgba(0,0,0,.62);
+}
+body.light{
+  --ui-bg:#f3f5f7;--ui-surface:#ffffff;--ui-surface-2:#eef1f4;--ui-surface-3:#e5e9ee;
+  --ui-border:#cbd2da;--ui-border-strong:#aeb8c4;--ui-text:#1f252c;--ui-text-muted:#5d6875;--ui-text-subtle:#7b8794;
+  --ui-accent:#3977cf;--ui-accent-strong:#245fae;--ui-accent-soft:#dce9fb;
+  --ui-success:#287b55;--ui-success-bg:#e7f6ed;--ui-danger:#a53240;--ui-danger-bg:#fff0f1;
+  --ui-warning:#8a6411;--ui-input:#ffffff;--ui-check:#3977cf;--ui-check-disabled:#9aa5b1;
+  --ui-shadow:rgba(25,35,45,.12);--ui-overlay:rgba(20,25,30,.38);
+}
+body{background:var(--ui-bg);color:var(--ui-text)}
+header{background:color-mix(in srgb,var(--ui-surface) 94%,transparent);border-bottom-color:var(--ui-border)}
+button,.filebtn{background:var(--ui-surface-2);border-color:var(--ui-border-strong);color:var(--ui-text)}
+button:hover,.filebtn:hover{background:var(--ui-surface-3);border-color:var(--ui-accent)}
+button.primary{background:var(--ui-accent-strong);border-color:var(--ui-accent);color:#fff}
+#drop{background:var(--ui-surface-2);border-color:var(--ui-border-strong);color:var(--ui-text-muted)}
+#status{background:var(--ui-surface-2);color:var(--ui-text-muted)}
+#status.ok{color:var(--ui-success);border-color:var(--ui-success);background:var(--ui-success-bg)}
+#status.error{color:var(--ui-danger);border-color:var(--ui-danger);background:var(--ui-danger-bg)}
+.card{background:var(--ui-surface);border-color:var(--ui-border);box-shadow:0 10px 26px var(--ui-shadow)}
+.cardhead{background:linear-gradient(135deg,var(--ui-surface-2),var(--ui-surface));border-bottom-color:var(--ui-border)}
+.field,.difficulty-card,.object-card{background:var(--ui-surface-2);border-color:var(--ui-border-strong)}
+.field.required{border-color:var(--ui-accent-strong)}
+.field.invalid{background:var(--ui-danger-bg);border-color:var(--ui-danger)}
+.key{color:var(--ui-text)}.req{color:var(--ui-text-muted);border-color:var(--ui-border-strong)}.type{color:var(--ui-text-subtle)}
+.value,.diff-actions select,.optional-add select,.batch-row select,.batch-row input,.filterbar input{background:var(--ui-input);border-color:var(--ui-border-strong);color:var(--ui-text)}
+.diffbox{background:var(--ui-surface-2);border-left-color:var(--ui-accent-strong)}
+.diffhead{color:var(--ui-text-muted)}
+.match{background:var(--ui-surface-3);color:var(--ui-text-muted)}
+.match.bad{color:var(--ui-danger);background:var(--ui-danger-bg)}.match.ok{color:var(--ui-success);background:var(--ui-success-bg)}
+#issues{background:var(--ui-surface);border-color:var(--ui-border)}
+.issue{background:var(--ui-danger-bg);border-color:var(--ui-danger)}.issue b{color:var(--ui-danger)}
+.issue-empty{color:var(--ui-success)}
+.check,.cardselect{accent-color:var(--ui-check)}
+.check:disabled{opacity:1;accent-color:var(--ui-check-disabled)}
+.cardselect.missing{accent-color:var(--ui-check-disabled)}
+.modal-backdrop{background:var(--ui-overlay)}.modal{background:var(--ui-surface);border-color:var(--ui-border);color:var(--ui-text)}
+.batch-section{background:var(--ui-surface-2);border-color:var(--ui-border)}
+.batch-hint{color:var(--ui-text-muted)}
+.toolbar>button.primary{background:var(--ui-surface-2);border-color:var(--ui-border-strong);color:var(--ui-text)}
+.toolbar>button.primary:hover{background:var(--ui-surface-3);border-color:var(--ui-accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Arcaea Songlist 编辑器</h1>
+  <div class="sub">v0.1.7</div>
+  <button id="themeToggle" class="theme-button" type="button" aria-label="切换到日间模式" title="切换到日间模式">☀️</button>
+  <div class="toolbar">
+    <label class="filebtn">选择 songlist<input id="file" type="file" accept="*/*"></label>
+    <label class="filebtn">选择歌曲目录<input id="folder" type="file" webkitdirectory directory multiple></label>
+    <button id="toggleAll" type="button">全部折叠</button>
+    <button id="batchScript" type="button">批量脚本</button>
+    <button id="export" class="primary">导出 songlist.json</button>
+    <button id="check">检查全部</button>
+    <button id="clear">清空</button>
+  </div>
+</header>
+
+<div id="drop">拖动 songlist 文件到页面任意位置</div>
+<div id="status">尚未导入</div>
+<div id="filters" class="filterbar">
+  <input id="filterSong" type="search" placeholder="筛选 ID / 本地化标题">
+  <input id="filterKey" type="search" placeholder="筛选键名">
+  <button id="clearFilters" type="button">清除筛选</button>
+</div>
+<div id="modalBackdrop" class="modal-backdrop" role="presentation">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle">导入提示</h2><p id="modalMessage"></p>
+    <div class="modal-actions"><button id="modalClose" type="button">确定</button></div>
+  </section>
+</div>
+<div id="batchBackdrop" class="modal-backdrop" role="presentation">
+  <section class="modal batch-modal" role="dialog" aria-modal="true" aria-labelledby="batchTitle">
+    <h2 id="batchTitle">手动构筑批量脚本</h2>
+    <datalist id="batchKeyList"></datalist>
+    <div class="batch-section"><h3>筛选条件</h3><div id="batchConditions"></div><button id="addBatchCondition" type="button">新增筛选条件</button><div class="batch-hint">“否”表示不等于，“是”表示等于；条件之间可使用与/或连接。</div></div>
+    <div class="batch-section"><h3>批量处理</h3><div id="batchActions"></div><button id="addBatchAction" type="button">新增批量处理</button></div>
+    <div class="batch-actions"><button id="batchClose" type="button">取消</button><button id="runBatch" class="primary" type="button">执行脚本</button></div>
+  </section>
+</div>
+<div id="workspace">
+  <main id="cards"><div class="empty">等待导入 songlist</div></main>
+  <aside id="issues"><div class="issue-title">问题提醒</div><div class="issue-empty">暂无问题</div></aside>
+</div>
+
+<script>
+/*
+  Schema source:
+  yojohanshinwataikei/vscode-arcaea-file-format/json-schema/songdata.json
+  The schema requires id; for non-deleted songs it additionally requires:
+  title_localized, artist, bpm, bpm_base, set, purchase,
+  audioPreview, audioPreviewEnd, side, version, date.
+*/
+const LANGS=["en","ja","ko","zh-Hans","zh-Hant"];
+
+const S={
+ id:{type:"string",required:true},
+ idx:{type:"number"},
+ title_localized:{type:"object",required:true,localized:true,requiredProps:["en"]},
+ jacket_localized:{type:"object",localizedBool:true},
+ artist:{type:"string",required:true},
+ artist_localized:{type:"object",localized:true,requiredProps:["en"]},
+ search_title:{type:"object",searchLocalized:true},
+ search_artist:{type:"object",searchLocalized:true},
+ bpm:{type:"string",required:true},
+ bpm_base:{type:"number",minExclusive:0,required:true},
+ set:{type:"string",required:true},
+ purchase:{type:"string",required:true},
+ audioPreview:{type:"integer",required:true,min:0},
+ audioPreviewEnd:{type:"integer",required:true,min:0},
+ side:{type:"integer",required:true,enum:[0,1,2,3]},
+ world_unlock:{type:"boolean"},
+ byd_local_unlock:{type:"boolean"},
+ songlist_hidden:{type:"boolean"},
+ bg:{type:"string",required:true},
+ bg_inverse:{type:"string"},
+ bg_daynight:{type:"object",requiredProps:["day","night"],props:{day:{type:"string"},night:{type:"string"}}},
+ date:{type:"integer",required:true,allowEmpty:true,min:0},
+ version:{type:"string",required:true,allowEmpty:true},
+ remote_dl:{type:"boolean"},
+ source_localized:{type:"object",localized:true,requiredProps:["en"]},
+ source_copyright:{type:"string"},
+ no_stream:{type:"boolean"},
+ additional_files:{type:"array",oneOf:["string","object"]},
+ difficulties:{type:"array",item:"difficulty"}
+};
+
+const D={
+ chartDesigner:{type:"string",required:true,allowEmpty:true},
+ jacketDesigner:{type:"string",required:true,allowEmpty:true},
+ ratingClass:{type:"integer",required:true,enum:[0,1,2,3,4]},
+ rating:{type:"integer",required:true,min:0},
+ ratingPlus:{type:"boolean"},
+ legacy11:{type:"boolean"},
+ plusFingers:{type:"unionBoolean01"},
+ jacketOverride:{type:"boolean"},
+ title_localized:{type:"object",localized:true,requiredProps:["en"]},
+ artist:{type:"string"},
+ artist_localized:{type:"object",localized:true,requiredProps:["en"]},
+ audioOverride:{type:"boolean"},
+ jacket_night:{type:"string"},
+ hidden_until_unlocked:{type:"boolean"},
+ hidden_until:{type:"string",enum:["none","always","difficulty","song","unlockconditions"]},
+ world_unlock:{type:"boolean"},
+ bg:{type:"string"},
+ bg_inverse:{type:"string"},
+ bpm:{type:"string"},
+ bpm_base:{type:"number",minExclusive:0},
+ version:{type:"string"},
+ date:{type:"integer",min:0}
+};
+
+const DEFAULTS={
+ id:"",idx:0,title_localized:{en:""},jacket_localized:{},
+ artist:"",artist_localized:{en:""},search_title:{},search_artist:{},
+ bpm:"",bpm_base:1,set:"",purchase:"",audioPreview:0,audioPreviewEnd:0,side:0,
+ world_unlock:false,byd_local_unlock:false,songlist_hidden:false,bg:"",bg_inverse:"",
+ bg_daynight:{day:"",night:""},date:0,version:"",remote_dl:false,source_localized:{en:""},
+ source_copyright:"",no_stream:false,additional_files:[],difficulties:[]
+};
+const DDEFAULT={
+ chartDesigner:"",jacketDesigner:"",ratingClass:0,rating:0,ratingPlus:false,legacy11:false,
+ plusFingers:false,jacketOverride:false,title_localized:{en:""},artist:"",artist_localized:{en:""},
+ audioOverride:false,jacket_night:"",hidden_until_unlocked:false,hidden_until:"none",
+ world_unlock:false,bg:"",bg_inverse:"",bpm:"",bpm_base:1,version:"",date:0
+};
+
+let rootShape="object",songs=[], sourceName="songlist.json";
+let folderFiles=[], folderGeneratedSongIds=new Set(), folderReport={bySong:new Map(),missingCharts:[],missingJackets:[],missingAudio:[],orphanFiles:[],orphanFolders:[],orphanSongIds:new Set()};
+let theme=localStorage.getItem("arcaea-songlist-theme")||"night";
+let allCollapsed=false;
+
+const $=id=>document.getElementById(id);
+const deepClone=x=>JSON.parse(JSON.stringify(x));
+function applyTheme(){
+  document.body.classList.toggle("light",theme==="day");
+  const toDay=theme!=="day";
+  $("themeToggle").textContent=toDay?"☀️":"🌙";
+  $("themeToggle").setAttribute("aria-label",toDay?"切换到日间模式":"切换到夜间模式");
+  $("themeToggle").title=toDay?"切换到日间模式":"切换到夜间模式";
+}
+function showModal(title,message){
+  $("modalTitle").textContent=title;
+  $("modalMessage").textContent=message;
+  $("modalBackdrop").classList.add("open");
+  $("modalClose").focus();
+}
+function closeModal(){$("modalBackdrop").classList.remove("open")}
+function closeBatchModal(){$("batchBackdrop").classList.remove("open")}
+function openBatchModal(){renderBatchEditor({conditions:batchDefaults.conditions.map(x=>({...x})),actions:batchDefaults.actions.map(x=>({...x}))});$("batchBackdrop").classList.add("open")}
+function isSongRecord(value){
+  return isObject(value)&&("id" in value||"title_localized" in value||"artist" in value||"difficulties" in value);
+}
+function parseSonglist(data){
+  let list;
+  if(Array.isArray(data)){rootShape="array";list=data}
+  else if(isObject(data)&&Array.isArray(data.songs)){rootShape="object";list=data.songs}
+  else throw new Error("这不是 songlist 文件：未找到 songs 数组。");
+  if(list.length&&!list.every(isSongRecord)) throw new Error("这不是 songlist 文件：songs 中包含无法识别的歌曲对象。");
+  return list;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function pretty(v){return JSON.stringify(v,null,2);}
+function isObject(v){return v && typeof v==="object" && !Array.isArray(v);}
+function getTitle(song){
+  return song?.title_localized?.en || song?.title_localized?.["zh-Hans"] || song?.id || "(untitled)";
+}
+function effectiveSchema(key,song){
+  if(key==="title_localized"||key==="artist"||key==="bpm"||key==="bpm_base"||key==="set"||key==="purchase"||
+     key==="audioPreview"||key==="audioPreviewEnd"||key==="side"||key==="version"||key==="date")
+    return S[key];
+  return S[key];
+}
+function requiredForSong(key,song){
+  if(key==="id") return true;
+  return !!S[key]?.required;
+}
+function defaultFor(key,song){
+  if(key==="id") return "";
+  return deepClone(DEFAULTS[key]);
+}
+const fieldOpenState=new Map();
+function fieldHasValue(value){
+  if(value==null) return false;
+  if(typeof value==="string") return value.trim()!=="";
+  if(Array.isArray(value)) return value.length>0;
+  if(isObject(value)) return Object.keys(value).length>0;
+  return true;
+}
+function isAllowedEmpty(value,schema){
+  return !!schema?.allowEmpty&&(value==null||value===""||(typeof value==="number"&&!Number.isFinite(value)));
+}
+function inputFor(obj,key,schema,required,path,container){
+  const value = obj[key];
+  const checked = Object.prototype.hasOwnProperty.call(obj,key);
+  const disabled = required;
+  if(isAllowedEmpty(value,schema)) fieldOpenState.set(path,false);
+  if(!fieldOpenState.has(path)) fieldOpenState.set(path,checked&&(fieldHasValue(value)||(required&&!(["purchase","artist"].includes(key)))));
+  const open=fieldOpenState.get(path)===true;
+  const collapsed=!open;
+  const id="f_"+path.replace(/[^a-zA-Z0-9_-]/g,"_");
+  let control="";
+  const type=schema?.type||"json";
+  if(type==="boolean"){
+    control=`<select class="value" data-path="${esc(path)}" ${disabled?"":"data-editable"} ${checked?"":"disabled"}><option value="true" ${value===true?"selected":""}>true</option><option value="false" ${value===false?"selected":""}>false</option></select>`;
+  }else if(type==="integer"||type==="number"){
+    const attrs=type==="integer"?'step="1"':'step="any"';
+    control=`<input class="value" data-path="${esc(path)}" ${attrs} type="number" value="${esc(value??"")}" ${checked||required?"":"disabled"}>`;
+  }else if(type==="string"){
+    control=`<input class="value" data-path="${esc(path)}" type="text" value="${esc(value??"")}" ${checked||required?"":"disabled"}>`;
+  }else{
+    control=`<textarea class="value" data-path="${esc(path)}" ${checked||required?"":"disabled"}>${esc(checked?pretty(value):"")}</textarea>`;
+  }
+  const help=schema?.enum?`可选值：${schema.enum.join(", ")}`:"";
+  return `<div class="field ${required?"required":""} ${collapsed?"field-collapsed":""} ${!checked&&!required?"unchecked":""}" data-field="${esc(path)}">
+    <div class="row">
+      <input class="check" type="checkbox" data-check="${esc(path)}" ${checked||required?"checked":""} ${disabled?"disabled":""}>
+      <span class="key">${esc(key)}</span>${required?`<span class="req">${schema?.allowEmpty?"可空":"必需"}</span>`:""}<span class="type">${esc(type)}</span><button type="button" class="field-toggle" data-field-toggle="${esc(path)}" aria-expanded="${open}">${open?"▾":"▸"}</button>
+    </div>${control}${help?`<div class="help">${esc(help)}</div>`:""}<div class="msg"></div>
+  </div>`;
+}
+
+const diffOpenState=new Map();
+const titleOpenState=new Map();
+const titleLangOpenState=new Map();
+const songOpenState=new Map();
+function diffStateKey(song,i,j){return `${song.id||i}:${j}`}
+function songStateKey(song,i){return String(song.id||i)}
+function titleLangStateKey(song,i,lang){return `${song.id||i}:${lang}`}
+function difficultyName(ratingClass){
+  return ({0:"Past",1:"Present",2:"Future",3:"Beyond",4:"Eternal"})[Number(ratingClass)]||"Difficulty";
+}
+function isDiffOpen(song,i,j,d){
+  const key=diffStateKey(song,i,j);
+  if(!diffOpenState.has(key)) diffOpenState.set(key,Number(d.ratingClass)!==0&&Number(d.ratingClass)!==1);
+  return diffOpenState.get(key);
+}
+function renderDifficulty(song,i,d,j){
+  const open=isDiffOpen(song,i,j,d), locked=Number(d.ratingClass)===0||Number(d.ratingClass)===1;
+  const keyQuery=$("filterKey")?.value.trim().toLowerCase()||"";
+  const matchesKey=key=>!keyQuery||key.toLowerCase().includes(keyQuery);
+  if(keyQuery&&!Object.keys(D).some(key=>matchesKey(key))&&!matchesKey("difficulties")) return "";
+  let fields="";
+  for(const [key,schema] of Object.entries(D)){
+    if(matchesKey(key)&&(schema.required || Object.prototype.hasOwnProperty.call(d,key)))
+      fields+=inputFor(d,key,schema,!!schema.required,`${i}.difficulties.${j}.${key}`);
+  }
+  const availableFields=Object.entries(D).filter(([key,schema])=>!schema.required&&!Object.prototype.hasOwnProperty.call(d,key));
+  const fieldOptions=availableFields.map(([key])=>`<option value="${esc(key)}">${esc(key)}</option>`).join("");
+  return `<section class="difficulty-card ${open?"open":"collapsed"}" data-diff-card="${i}.${j}">
+    <div class="diff-title-row">
+      <button type="button" class="diff-toggle" data-diff-toggle="${i}.${j}" aria-expanded="${open}">${difficultyName(d.ratingClass)} · ratingClass=${esc(d.ratingClass??"")} ${open?"▾":"▸"}</button>
+      <button type="button" class="diff-delete" data-diff-delete="${i}.${j}" ${locked?"disabled":""}>删除</button>
+    </div>
+    <div class="difffield-fields">${fields}</div>
+    ${keyQuery?"":`<div class="optional-add"><select data-add-diff-field="${i}.${j}" ${fieldOptions?"":"disabled"}><option value="">添加字段</option>${fieldOptions}</select><button type="button" data-add-diff-field-button="${i}.${j}" ${fieldOptions?"":"disabled"}>添加</button></div>`}
+  </section>`;
+}
+function renderTitleLanguage(song,i,lang){
+  const open=titleLangOpenState.get(titleLangStateKey(song,i,lang))!==false;
+  const locked=lang==="en";
+  return `<section class="difficulty-card title-language-card ${open?"open":"collapsed"}" data-title-lang-card="${i}.${esc(lang)}">
+    <div class="diff-title-row"><button type="button" class="diff-toggle" data-title-lang-toggle="${i}.${esc(lang)}" aria-expanded="${open}">${esc(lang)} ${open?"▾":"▸"}</button><button type="button" class="diff-delete" data-title-lang-delete="${i}.${esc(lang)}" ${locked?"disabled":""}>删除</button></div>
+    <div class="difffield-fields"><div class="field required"><div class="row"><span class="key">${esc(lang)}</span><span class="req">${locked?"必需":"语言"}</span><span class="type">string</span></div><input class="value" data-path="${i}.title_localized.${esc(lang)}" type="text" value="${esc(song.title_localized?.[lang]??"")}"></div></div>
+  </section>`;
+}
+function renderTitleLocalized(song,i){
+  const key=String(song.id||i), open=titleOpenState.get(key)!==false;
+  const keyQuery=$("filterKey")?.value.trim().toLowerCase()||"";
+  const value=isObject(song.title_localized)?song.title_localized:{};
+  const matchesKey=key=>!keyQuery||key.toLowerCase().includes(keyQuery);
+  const langs=LANGS.filter(lang=>Object.prototype.hasOwnProperty.call(value,lang)&&(matchesKey("title_localized")||matchesKey(lang)));
+  const options=LANGS.filter(lang=>!Object.prototype.hasOwnProperty.call(value,lang)).map(lang=>`<option value="${esc(lang)}">${esc(lang)}</option>`).join("");
+  if(keyQuery&&!matchesKey("title_localized")&&!langs.length) return "";
+  return `<section class="object-card ${open?"open":"collapsed"}" data-title-card="${i}">
+    <div class="object-title-row"><button type="button" class="object-toggle" data-title-toggle="${i}" aria-expanded="${open}">title_localized · ${langs.length} 项 ${open?"▾":"▸"}</button><span class="req">必需</span></div>
+    <div class="object-fields"><div class="diffbox title-language-box">${langs.map(lang=>renderTitleLanguage(song,i,lang)).join("")}<div class="optional-add"><select data-add-title-lang="${i}" ${options?"":"disabled"}><option value="">添加语言</option>${options}</select><button type="button" data-add-title-lang-button="${i}" ${options?"":"disabled"}>添加</button></div></div></div>
+  </section>`;
+}
+function renderCard(song,i){
+  const selected=song.__editorSelected!==false;
+  const missing=folderReport.orphanSongIds.has(song.id);
+  const open=songOpenState.get(songStateKey(song,i))===true;
+  let html=`<article class="card ${open?"":"collapsed"}" data-song="${i}">
+    <div class="cardhead">
+      <div class="cardheadrow">
+        <input class="cardselect ${missing?"missing":""}" type="checkbox" data-song-select="${i}" ${selected?"checked":""}>
+        <span class="cardnum">${i+1}.</span>
+        <div style="min-width:0"><div class="title">${esc(getTitle(song))}</div><div class="meta">id=${esc(song.id||"(missing)")}</div></div>
+        <button type="button" class="song-toggle" data-song-toggle="${i}" aria-expanded="${open}" title="${open?"折叠歌曲卡片":"展开歌曲卡片"}">${open?"▾":"▸"}</button>
+      </div>
+      ${renderMatchStatus(song)}
+    </div>
+    <div class="fields">`;
+  for(const [key,schema] of Object.entries(S)){
+    if(key==="difficulties") break;
+    const keyQuery=$("filterKey")?.value.trim().toLowerCase()||"";
+    if(keyQuery&&!key.toLowerCase().includes(keyQuery)&&key!=="title_localized") continue;
+    if(key==="title_localized"){
+      html+=renderTitleLocalized(song,i);
+      continue;
+    }
+    html+=inputFor(song,key,schema,requiredForSong(key,song),`${i}.${key}`);
+  }
+  const diffs=Array.isArray(song.difficulties)?song.difficulties:[];
+  const used=new Set(diffs.map(d=>Number(d?.ratingClass)).filter(Number.isInteger));
+  const options=[0,1,2,3,4].filter(n=>!used.has(n)).map(n=>`<option value="${n}">${n}</option>`).join("");
+  const keyQuery=$("filterKey")?.value.trim().toLowerCase()||"";
+  const diffCards=diffs.map((d,j)=>renderDifficulty(song,i,d,j)).join("");
+  const showDiff=!keyQuery||"difficulties".includes(keyQuery)||diffCards;
+  if(showDiff) html+=`<div class="diffbox"><div class="diffhead">difficulties · ${diffs.length} 项</div>${diffCards}${keyQuery?"":`<div class="diff-actions"><select data-add-rating="${i}" aria-label="选择要添加的 ratingClass"><option value="">选择 ratingClass</option>${options}</select><button type="button" data-add-diff="${i}" ${options?"":"disabled"}>添加 difficulty</button></div>`}</div>`;
+  html+=`</div></article>`;
+  return html;
+}
+
+function collectKeys(value,set=new Set()){
+  if(Array.isArray(value)){value.forEach(item=>collectKeys(item,set));return set}
+  if(isObject(value)) for(const [key,child] of Object.entries(value)){set.add(key);collectKeys(child,set)}
+  return set;
+}
+function matchesFilters(song){
+  const text=$("filterSong")?.value.trim().toLowerCase()||"";
+  const keyQuery=$("filterKey")?.value.trim().toLowerCase()||"";
+  if(text){
+    const titles=isObject(song.title_localized)?Object.values(song.title_localized).map(String):[];
+    const haystack=[String(song.id||""),...titles].join(" ").toLowerCase();
+    if(!haystack.includes(text)) return false;
+  }
+  return true;
+}
+function setAllCardsExpanded(open){
+  songs.forEach((song,i)=>{
+    const key=songStateKey(song,i);
+    songOpenState.set(key,open); titleOpenState.set(key,open);
+    (Array.isArray(song.difficulties)?song.difficulties:[]).forEach((d,j)=>diffOpenState.set(diffStateKey(song,i,j),open));
+    if(isObject(song.title_localized)) for(const lang of Object.keys(song.title_localized)) titleLangOpenState.set(titleLangStateKey(song,i,lang),open);
+  });
+}
+
+const batchDefaults={conditions:[{op:"ne",key:"artist",value:"",relation:"and"}],actions:[{type:"modify",key:"set",value:"",order:"asc"}]};
+function batchKeyNames(){return [...new Set([...Object.keys(S).filter(key=>key!=="difficulties"),"title_localized.en"])].filter(key=>key!=="deleted")}
+function readBatchEditor(){
+  const conditions=[...$("batchConditions").querySelectorAll("[data-condition]")].map(row=>({op:row.querySelector("[data-condition-op]").value,key:row.querySelector("[data-condition-key]").value.trim(),value:row.querySelector("[data-condition-value]").value,relation:row.querySelector("[data-condition-relation]")?.value||"and"}));
+  const actions=[...$("batchActions").querySelectorAll("[data-action]")].map(row=>({type:row.querySelector("[data-action-type]").value,key:row.querySelector("[data-action-key]").value.trim(),value:row.querySelector("[data-action-value]")?.value||"",order:row.querySelector("[data-action-order]")?.value||"asc"}));
+  return {conditions,actions};
+}
+function renderBatchEditor(state=batchDefaults){
+  $("batchKeyList").innerHTML=batchKeyNames().map(key=>`<option value="${esc(key)}"></option>`).join("");
+  $("batchConditions").innerHTML=state.conditions.map((condition,i)=>`<div class="batch-row" data-condition="${i}"><select class="batch-op" data-condition-op><option value="ne" ${condition.op==="ne"?"selected":""}>否（不等于）</option><option value="eq" ${condition.op==="eq"?"selected":""}>是（等于）</option></select><input list="batchKeyList" data-condition-key placeholder="键名" value="${esc(condition.key)}"><input data-condition-value placeholder="比较值" value="${esc(condition.value)}">${i<state.conditions.length-1?`<select class="batch-relation" data-condition-relation><option value="and" ${condition.relation!=="or"?"selected":""}>与</option><option value="or" ${condition.relation==="or"?"selected":""}>或</option></select>`:""}<button type="button" class="batch-remove" data-remove-condition="${i}">删除</button></div>`).join("");
+  $("batchActions").innerHTML=state.actions.map((action,i)=>`<div class="batch-row" data-action="${i}"><select class="batch-op" data-action-type><option value="modify" ${action.type==="modify"?"selected":""}>修改</option><option value="sort" ${action.type==="sort"?"selected":""}>排序</option></select><input list="batchKeyList" data-action-key placeholder="键名" value="${esc(action.key)}">${action.type==="modify"?`<input data-action-value placeholder="设置值" value="${esc(action.value)}">`:``}${action.type==="sort"?`<select class="batch-relation" data-action-order><option value="asc" ${action.order!=="desc"?"selected":""}>升序</option><option value="desc" ${action.order==="desc"?"selected":""}>降序</option></select>`:``}<button type="button" class="batch-remove" data-remove-action="${i}">删除</button></div>`).join("");
+}
+function getBatchPathValue(song,path){return path.split(".").reduce((value,key)=>value==null?undefined:value[key],song)}
+function setBatchPathValue(song,path,value){const parts=path.split(".");let target=song;for(let i=0;i<parts.length-1;i++){if(!isObject(target[parts[i]])) target[parts[i]]={};target=target[parts[i]]}target[parts.at(-1)]=value}
+function batchCompareValue(value){return value==null?"":isObject(value)||Array.isArray(value)?JSON.stringify(value):String(value)}
+function batchConditionResult(song,condition){
+  if(!condition.key) return false;
+  const actual=batchCompareValue(getBatchPathValue(song,condition.key));
+  return condition.op==="eq"?actual===condition.value:actual!==condition.value;
+}
+function batchMatches(song,conditions){
+  if(!conditions.length) return true;
+  let result=batchConditionResult(song,conditions[0]);
+  for(let i=1;i<conditions.length;i++) result=conditions[i-1].relation==="or"?result||batchConditionResult(song,conditions[i]):result&&batchConditionResult(song,conditions[i]);
+  return result;
+}
+function batchCoerceValue(key,raw){
+  const top=key.split(".")[0], schema=S[top];
+  if(!schema||schema.type==="string") return raw;
+  if(schema.type==="boolean") return raw==="true";
+  if(schema.type==="integer") return raw===""?NaN:Number.parseInt(raw,10);
+  if(schema.type==="number") return raw===""?NaN:Number(raw);
+  try{return JSON.parse(raw)}catch{return Symbol("invalid")}
+}
+function executeBatchScript(){
+  const {conditions,actions}=readBatchEditor();
+  if(actions.some(action=>!action.key)){showModal("批量脚本错误","每个批量处理都需要填写键名。");return}
+  const targets=songs.filter(song=>batchMatches(song,conditions));
+  for(const action of actions){
+    if(action.type==="modify"){
+      const value=batchCoerceValue(action.key,action.value);
+      if(typeof value==="symbol"||typeof value==="number"&&!Number.isFinite(value)){showModal("批量脚本错误",`${action.key} 的设置值格式无效。`);return}
+      targets.forEach(song=>setBatchPathValue(song,action.key,deepClone(value)));
+    }else{
+      const direction=action.order==="desc"?-1:1;
+      songs.sort((a,b)=>batchCompareValue(getBatchPathValue(a,action.key)).localeCompare(batchCompareValue(getBatchPathValue(b,action.key)),undefined,{numeric:true,sensitivity:"base"})*direction);
+    }
+  }
+  if(folderFiles.length) buildFolderReport();
+  closeBatchModal(); render(); $("status").className="ok";$("status").textContent=`批量脚本执行完成：匹配 ${targets.length} 首歌曲。`;
+}
+
+function renderMatchStatus(song){
+  if(!folderFiles.length) return "";
+  const r=folderReport.bySong.get(song.id);
+  if(!r) return `<div class="match bad">目录中未找到对应歌曲</div>`;
+  const problems=[];
+  if(r.audio) problems.push("歌曲");
+  if(r.jacket) problems.push("封面");
+  if(r.charts.length) problems.push("谱面: "+r.charts.join(", "));
+  if(r.overrideAudio.length) problems.push("难度歌曲: "+r.overrideAudio.join(", "));
+  return problems.length?`<div class="match bad">缺少：${esc(problems.join(" / "))}</div>`:`<div class="match ok">目录匹配完整</div>`;
+}
+const IGNORED_FOLDER_NAMES=new Set(["pack","tutorial"]);
+function isIgnoredFolderPath(parts){return parts.some(part=>IGNORED_FOLDER_NAMES.has(String(part).toLowerCase()))}
+function filesForSong(id){
+  const songId=String(id||"");
+  if(!songId) return [];
+  return folderFiles.filter(f=>{
+    const parts=String(f.webkitRelativePath||f.name||"").split(/[\\/]/).filter(Boolean);
+    return parts.length>=3&&parts[parts.length-2]===songId&&!isIgnoredFolderPath(parts);
+  });
+}
+function folderNamesFromFiles(){
+  const names=new Set();
+  folderFiles.forEach(f=>{
+    const parts=String(f.webkitRelativePath||f.name||"").split(/[\\/]/).filter(Boolean);
+    if(parts.length<3||isIgnoredFolderPath(parts)) return;
+    names.add(parts[parts.length-2]);
+  });
+  return names;
+}
+function createFolderSong(id){
+  const song=deepClone(DEFAULTS);
+  song.id=id;
+  song.__editorSelected=false;
+  return song;
+}
+function requiredAssetNames(song){
+  const names=new Set(["base.ogg","base.jpg","base_256.jpg"]);
+  const diffs=Array.isArray(song.difficulties)?song.difficulties:[];
+  const ratingClasses=new Set(diffs.map(d=>Number(d?.ratingClass)).filter(Number.isInteger));
+  const has34=ratingClasses.has(3)||ratingClasses.has(4);
+  if(!has34&&ratingClasses.has(2)) names.add("2.aff");
+  [3,4].forEach(ratingClass=>{if(ratingClasses.has(ratingClass)) names.add(`${ratingClass}.aff`)});
+  diffs.forEach(d=>{
+    const ratingClass=Number(d?.ratingClass);
+    if(d?.audioOverride===true&&Number.isInteger(ratingClass)) names.add(`${ratingClass}.ogg`);
+  });
+  return [...names];
+}
+function buildFolderReport(){
+  const bySong=new Map(), orphanSongIds=new Set(), folderNames=folderNamesFromFiles();
+  if(folderGeneratedSongIds.size){
+    songs=songs.filter(song=>!folderGeneratedSongIds.has(String(song.id||""))||folderNames.has(String(song.id||"")));
+    for(const id of [...folderGeneratedSongIds]) if(!folderNames.has(id)) folderGeneratedSongIds.delete(id);
+  }
+  const knownIds=new Set(songs.map(song=>String(song.id||"")));
+  const orphanFolders=[...folderNames].filter(id=>!knownIds.has(id));
+  orphanFolders.forEach(id=>{songs.push(createFolderSong(id));folderGeneratedSongIds.add(id)});
+  for(const song of songs){
+    const fs=filesForSong(song.id), names=new Set(fs.map(f=>String(f.name||"").toLowerCase()));
+    const missing=requiredAssetNames(song).filter(name=>!names.has(name));
+    const r={audio:missing.includes("base.ogg"),jacket:missing.includes("base.jpg")||missing.includes("base_256.jpg"),charts:missing.filter(name=>/\.aff$/i.test(name)).map(name=>name.replace(/\.aff$/i,"")),overrideAudio:missing.filter(name=>/\.ogg$/i.test(name)&&name!=="base.ogg")};
+    r.missing=missing;
+    bySong.set(song.id,r);
+    if(!fs.length) orphanSongIds.add(song.id);
+  }
+  const orphanFiles=folderFiles.filter(f=>{
+    const n=String(f.name||"").toLowerCase();
+    const parts=String(f.webkitRelativePath||f.name||"").split(/[\\/]/).filter(Boolean);
+    const folderName=parts.length>=3?parts[parts.length-2]:"";
+    return parts.length>=3&&/\.(ogg|aff|jpg|jpeg|png)$/i.test(n)&&!isIgnoredFolderPath(parts)&&!songs.some(song=>String(song.id||"")===folderName);
+  });
+  const missingCharts=[],missingJackets=[],missingAudio=[];
+  for(const [id,r] of bySong){
+    if(r.audio||r.overrideAudio.length) missingAudio.push(id);
+    if(r.jacket) missingJackets.push(id);
+    if(r.charts.length) missingCharts.push({id,charts:r.charts});
+  }
+  folderReport={bySong,orphanFiles,orphanFolders,missingCharts,missingJackets,missingAudio,orphanSongIds};
+  for(const song of songs) if(orphanSongIds.has(song.id)) song.__editorSelected=false;
+}
+function renderIssues(){
+  const a=[];
+  songs.forEach((song,i)=>{if(!String(song.id||"").trim()) a.push(`<div class="issue"><b>#${i+1}</b>：id 不能为空，且必须与歌曲目录名完全一致</div>`)});
+  songs.forEach((song,i)=>{
+    for(const [key,schema] of Object.entries(S)) if(schema.required&&!schema.allowEmpty&&!(["id","purchase","artist"].includes(key))&&!fieldHasValue(song[key]))
+      a.push(`<div class="issue"><b>#${i+1}.${esc(key)}</b>：必需字段不能为空</div>`);
+    if(Array.isArray(song.difficulties)) song.difficulties.forEach((d,j)=>{
+      for(const [key,schema] of Object.entries(D)) if(schema.required&&!schema.allowEmpty&&(key in d)&&!fieldHasValue(d[key]))
+        a.push(`<div class="issue"><b>#${i+1}.difficulties[${j}].${esc(key)}</b>：必需字段不能为空</div>`);
+    });
+  });
+  if(folderFiles.length&&!folderFiles.some(f=>String(f.webkitRelativePath||"").split(/[\\/]/).filter(Boolean).length>=3))
+    a.push('<div class="issue"><b>目录结构</b>：请选择包含所有歌曲子目录的总目录，不能只选择单个文件夹或文件。</div>');
+  folderReport.orphanFolders.forEach(id=>a.push(`<div class="issue"><b>文件夹 ${esc(id)}</b>：songlist 中没有对应歌曲，已按文件夹名创建未勾选歌曲卡片。</div>`));
+  folderReport.missingAudio.forEach(id=>a.push(`<div class="issue"><b>${esc(id)}</b>：缺少歌曲文件</div>`));
+  folderReport.missingJackets.forEach(id=>a.push(`<div class="issue"><b>${esc(id)}</b>：缺少封面</div>`));
+  folderReport.missingCharts.forEach(x=>a.push(`<div class="issue"><b>${esc(x.id)}</b>：缺少谱面 ${esc(x.charts.join(", "))}</div>`));
+  folderReport.orphanFiles.forEach(f=>{const parts=String(f.webkitRelativePath||f.name||"").split(/[\\/]/).filter(Boolean);const folder=parts.length>=3?parts[parts.length-2]:"(根目录)";a.push(`<div class="issue"><b>文件夹 ${esc(folder)}</b>：目录中存在文件 ${esc(f.name)}，但 songlist 没有对应歌曲</div>`)});
+  $("issues").innerHTML='<div class="issue-title">问题提醒</div>'+(a.length?a.join(""):'<div class="issue-empty">暂无问题</div>');
+}
+function render(){
+  const visible=songs.map((song,i)=>({song,i})).filter(({song})=>matchesFilters(song));
+  $("cards").innerHTML=visible.length?visible.map(({song,i})=>renderCard(song,i)).join(""):(songs.length?'<div class="empty">没有符合筛选条件的歌曲</div>':'<div class="empty">songlist 中没有歌曲</div>');
+  bindFields();
+  document.querySelectorAll("[data-song-select]").forEach(ch=>ch.addEventListener("change",()=>{
+    songs[+ch.dataset.songSelect].__editorSelected=ch.checked;
+  }));
+  document.querySelectorAll("[data-song-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
+    const card=btn.closest(".card");
+    const top=card.getBoundingClientRect().top;
+    const rowCards=[...document.querySelectorAll(".card")].filter(item=>Math.abs(item.getBoundingClientRect().top-top)<2);
+    const open=card.classList.contains("collapsed");
+    rowCards.forEach(rowCard=>{
+      const i=+rowCard.dataset.song, song=songs[i], key=songStateKey(song,i), rowButton=rowCard.querySelector("[data-song-toggle]");
+      songOpenState.set(key,open);
+      rowCard.classList.toggle("collapsed",!open);
+      rowButton.setAttribute("aria-expanded",String(open));
+      rowButton.title=open?"折叠歌曲卡片":"展开歌曲卡片";
+      rowButton.textContent=open?"▾":"▸";
+    });
+  }));
+  document.querySelectorAll("[data-field-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
+    const path=btn.dataset.fieldToggle, open=fieldOpenState.get(path)!==true;
+    fieldOpenState.set(path,open);
+    const card=btn.closest(".field");
+    card.classList.toggle("field-collapsed",!open);
+    btn.setAttribute("aria-expanded",String(open)); btn.textContent=open?"▾":"▸";
+  }));
+  document.querySelectorAll("[data-diff-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
+    const [i,j]=btn.dataset.diffToggle.split(".").map(Number), song=songs[i], key=diffStateKey(song,i,j);
+    const open=!diffOpenState.get(key);
+    diffOpenState.set(key,open);
+    const card=btn.closest(".difficulty-card");
+    card.classList.toggle("open",open); card.classList.toggle("collapsed",!open);
+    btn.setAttribute("aria-expanded",String(open));
+    btn.textContent=`${difficultyName(song.difficulties[j]?.ratingClass)} · ratingClass=${song.difficulties[j]?.ratingClass??""} ${open?"▾":"▸"}`;
+  }));
+  document.querySelectorAll("[data-title-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
+    const i=+btn.dataset.titleToggle, song=songs[i], key=String(song.id||i), open=titleOpenState.get(key)===false;
+    titleOpenState.set(key,open);
+    const card=btn.closest(".object-card");
+    card.classList.toggle("open",open); card.classList.toggle("collapsed",!open);
+    btn.setAttribute("aria-expanded",String(open));
+    const count=Object.keys(songs[i].title_localized||{}).length;
+    btn.textContent=`title_localized · ${count} 项 ${open?"▾":"▸"}`;
+  }));
+  document.querySelectorAll("[data-title-lang-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
+    const [i,lang]=btn.dataset.titleLangToggle.split("."), song=songs[+i], key=titleLangStateKey(song,+i,lang), open=titleLangOpenState.get(key)!==true;
+    titleLangOpenState.set(key,open);
+    const card=btn.closest(".title-language-card");
+    card.classList.toggle("open",open); card.classList.toggle("collapsed",!open);
+    btn.setAttribute("aria-expanded",String(open)); btn.textContent=`${lang} ${open?"▾":"▸"}`;
+  }));
+  document.querySelectorAll("[data-title-lang-delete]").forEach(btn=>btn.addEventListener("click",()=>{
+    const [i,lang]=btn.dataset.titleLangDelete.split("."), song=songs[+i];
+    if(lang==="en"||!song?.title_localized) return;
+    delete song.title_localized[lang]; render();
+  }));
+  document.querySelectorAll("[data-add-title-lang-button]").forEach(btn=>btn.addEventListener("click",()=>{
+    const i=+btn.dataset.addTitleLangButton, select=document.querySelector(`[data-add-title-lang="${i}"]`), lang=select?.value;
+    if(!LANGS.includes(lang)) return;
+    if(!isObject(songs[i].title_localized)) songs[i].title_localized={};
+    if(Object.prototype.hasOwnProperty.call(songs[i].title_localized,lang)) return;
+    songs[i].title_localized[lang]="";
+    titleLangOpenState.set(titleLangStateKey(songs[i],i,lang),true); render();
+  }));
+  document.querySelectorAll("[data-diff-delete]").forEach(btn=>btn.addEventListener("click",()=>{
+    const [i,j]=btn.dataset.diffDelete.split(".").map(Number), d=songs[i]?.difficulties?.[j];
+    if(!d || d.ratingClass===0 || d.ratingClass===1) return;
+    songs[i].difficulties.splice(j,1); diffOpenState.delete(diffStateKey(songs[i],i,j)); render();
+  }));
+  document.querySelectorAll("[data-add-diff]").forEach(btn=>btn.addEventListener("click",()=>{
+    const i=+btn.dataset.addDiff, select=document.querySelector(`[data-add-rating="${i}"]`), ratingClass=Number(select?.value);
+    if(!Number.isInteger(ratingClass)) return;
+    if(!Array.isArray(songs[i].difficulties)) songs[i].difficulties=[];
+    if(songs[i].difficulties.some(d=>Number(d.ratingClass)===ratingClass)) return;
+    const j=songs[i].difficulties.length;
+    songs[i].difficulties.push({...deepClone(DDEFAULT),ratingClass});
+    diffOpenState.set(diffStateKey(songs[i],i,j),true); render();
+  }));
+  document.querySelectorAll("[data-add-diff-field-button]").forEach(btn=>btn.addEventListener("click",()=>{
+    const [i,j]=btn.dataset.addDiffFieldButton.split(".").map(Number);
+    const select=document.querySelector(`[data-add-diff-field="${i}.${j}"]`), key=select?.value, schema=D[key];
+    if(!key||!schema||Object.prototype.hasOwnProperty.call(songs[i]?.difficulties?.[j]||{},key)) return;
+    songs[i].difficulties[j][key]=deepClone(DDEFAULT[key]);
+    render();
+  }));
+  renderIssues();
+}
+function getAt(path){
+  const parts=path.split("."); let cur=songs[+parts.shift()];
+  for(const p of parts) cur=cur?.[isNaN(p)?p:+p];
+  return cur;
+}
+function setAt(path,val){
+  const parts=path.split("."); const idx=+parts.shift(); let cur=songs[idx];
+  for(let n=0;n<parts.length-1;n++) cur=cur[isNaN(parts[n])?parts[n]:+parts[n]];
+  const last=parts[parts.length-1]; cur[isNaN(last)?last:+last]=val;
+}
+function deleteAt(path){
+  const parts=path.split("."); const idx=+parts.shift(); let cur=songs[idx];
+  for(let n=0;n<parts.length-1;n++) cur=cur[isNaN(parts[n])?parts[n]:+parts[n]];
+  delete cur[isNaN(parts.at(-1))?parts.at(-1):+parts.at(-1)];
+}
+function schemaAt(path){
+  const p=path.split("."); p.shift();
+  if(p[0]==="difficulties") return D[p.at(-1)];
+  if(p[0]==="title_localized"&&p.length===2) return {type:"string"};
+  return S[p.at(-1)];
+}
+function coerce(raw,schema){
+  if(schema?.type==="boolean") return raw==="true";
+  if(schema?.type==="integer") return raw===""?NaN:Number.parseInt(raw,10);
+  if(schema?.type==="number") return raw===""?NaN:Number(raw);
+  if(schema?.type==="string") return raw;
+  try{return JSON.parse(raw)}catch{return Symbol("invalid")}
+}
+function bindFields(){
+  document.querySelectorAll("[data-check]").forEach(ch=>{
+    ch.addEventListener("change",()=>{
+      const path=ch.dataset.check, val=getAt(path);
+      const input=document.querySelector(`[data-path="${CSS.escape(path)}"]`);
+      if(ch.checked){
+        fieldOpenState.set(path,true);
+        if(!Object.prototype.hasOwnProperty.call(getParent(path),getLast(path))){
+          const schema=schemaAt(path), def=path.includes(".difficulties.")?deepClone(DDEFAULT[getLast(path)]):defaultFor(getLast(path),songs[+path.split(".")[0]]);
+          setAt(path,def);
+          if(input){input.value=(schema?.type==="object"||schema?.type==="array"||schema?.type==="json")?pretty(def):def;input.disabled=false}
+        }else if(input) input.disabled=false;
+      }else{
+        fieldOpenState.set(path,false);
+        deleteAt(path); if(input) input.disabled=true;
+      }
+      render();
+    });
+  });
+  document.querySelectorAll("[data-path]").forEach(input=>{
+    input.addEventListener("input",()=>{
+      const path=input.dataset.path,schema=schemaAt(path),v=coerce(input.value,schema);
+      if(typeof v==="symbol") return;
+      setAt(path,v);
+      const card=input.closest(".card"); if(card) card.querySelector(".title").textContent=getTitle(songs[+card.dataset.song]);
+    });
+  });
+}
+function getParent(path){
+  const parts=path.split(".");parts.pop();let cur=songs[+parts.shift()];
+  for(const p of parts)cur=cur[isNaN(p)?p:+p];
+  return cur;
+}
+function getLast(path){return path.split(".").at(-1)}
+
+function validateValue(value,schema,label){
+  const errs=[];
+  if(!schema) return errs;
+  if(schema.type==="boolean" && typeof value!=="boolean") errs.push(`${label} 必须是 boolean`);
+  if(schema.type==="string" && typeof value!=="string") errs.push(`${label} 必须是 string`);
+  if((schema.type==="number"||schema.type==="integer")){
+    if(typeof value!=="number"||!Number.isFinite(value)) errs.push(`${label} 必须是 ${schema.type}`);
+    if(schema.type==="integer"&&!Number.isInteger(value)) errs.push(`${label} 必须是 integer`);
+    if(schema.min!=null&&value<schema.min) errs.push(`${label} 不能小于 ${schema.min}`);
+    if(schema.minExclusive!=null&&value<=schema.minExclusive) errs.push(`${label} 必须大于 ${schema.minExclusive}`);
+  }
+  if(schema.enum&&!schema.enum.includes(value)) errs.push(`${label} 必须为 ${schema.enum.join(", ")} 之一`);
+  if(schema.type==="object" && !isObject(value)) errs.push(`${label} 必须是 object`);
+  if(schema.type==="array"){
+    if(!Array.isArray(value)) errs.push(`${label} 必须是 array`);
+    else if(schema===S.additional_files){
+      value.forEach((item,i)=>{
+        if(typeof item==="string") return;
+        if(!isObject(item)) { errs.push(`${label}[${i}] 必须是 string 或 object`); return; }
+        if(typeof item.file_name!=="string") errs.push(`${label}[${i}].file_name 必须是 string`);
+        if(!["low_res","hi_res","required"].includes(item.requirement)) errs.push(`${label}[${i}].requirement 必须为 low_res、hi_res 或 required`);
+      });
+    }
+  }
+  if(schema.type==="unionBoolean01" && !(typeof value==="boolean" || (Number.isInteger(value)&&[0,1].includes(value))))
+    errs.push(`${label} 必须是 boolean 或 0/1`);
+  if(schema.requiredProps&&isObject(value)) for(const k of schema.requiredProps)
+    if(!(k in value)) errs.push(`${label}.${k} 缺失`);
+  if(schema.props&&isObject(value)) for(const [k,ss] of Object.entries(schema.props)) if(k in value) errs.push(...validateValue(value[k],ss,`${label}.${k}`));
+  if(schema.localized&&isObject(value)){
+    if(!("en" in value)) errs.push(`${label}.en 缺失`);
+    for(const [k,v] of Object.entries(value)) if(!LANGS.includes(k)||typeof v!=="string") errs.push(`${label}.${k} 必须是 string 且语言键应为 ${LANGS.join(", ")}`);
+  }
+  if(schema.localizedBool&&isObject(value)) for(const [k,v] of Object.entries(value))
+    if(!LANGS.includes(k)||typeof v!=="boolean") errs.push(`${label}.${k} 必须是 boolean`);
+  if(schema.searchLocalized&&isObject(value)) for(const [k,v] of Object.entries(value)){
+    if(!LANGS.includes(k)||!Array.isArray(v)||v.some(x=>typeof x!=="string")) errs.push(`${label}.${k} 必须是 string[]`);
+  }
+  if(schema.oneOf==="string" && typeof value!=="string") errs.push(`${label} 必须是 string`);
+  if(schema.oneOf==="object" && !isObject(value)) errs.push(`${label} 必须是 object`);
+  if(schema.oneOf && Array.isArray(schema.oneOf) && !["string","object"].some(t=>schema.oneOf.includes(t)&&typeof value===t)) errs.push(`${label} 格式无效`);
+  return errs;
+}
+function validateSong(song,i){
+  const errs=[];
+  if(!String(song.id||"").trim()) errs.push(`#${i+1}.id 不能为空`);
+  for(const [key,schema] of Object.entries(S)){
+    const present=Object.prototype.hasOwnProperty.call(song,key);
+    if(requiredForSong(key,song)&&!present) errs.push(`#${i+1}.${key} 是必需键`);
+    if(present&&!isAllowedEmpty(song[key],schema)) errs.push(...validateValue(song[key],schema,`#${i+1}.${key}`));
+    if(schema.required&&!schema.allowEmpty&&!(["id","purchase","artist"].includes(key))&&present&&!fieldHasValue(song[key])) errs.push(`#${i+1}.${key} 不能为空`);
+  }
+  if(Array.isArray(song.difficulties)) song.difficulties.forEach((d,j)=>{
+    for(const [k,schema] of Object.entries(D)){
+      if(schema.required && !(k in d)) errs.push(`#${i+1}.difficulties[${j}].${k} 是必需键`);
+      if(k in d&&!isAllowedEmpty(d[k],schema)) errs.push(...validateValue(d[k],schema,`#${i+1}.difficulties[${j}].${k}`));
+      if(schema.required&&!schema.allowEmpty&&(k in d)&&!fieldHasValue(d[k])) errs.push(`#${i+1}.difficulties[${j}].${k} 不能为空`);
+    }
+  });
+  return errs;
+}
+function runValidation(){
+  const errs=songs.flatMap(validateSong);
+  if(errs.length){$("status").className="error";$("status").textContent=`检查失败：${errs.length} 个问题\\n`+errs.slice(0,80).join("\\n")+(errs.length>80?"\\n…":"");return false}
+  $("status").className="ok";$("status").textContent=`检查通过：${songs.length} 首歌曲。必需键、类型、枚举值及数值约束均通过。`;return true;
+}
+function loadText(text,name){
+  try{
+    const data=JSON.parse(text);
+    songs=parseSonglist(data);
+    songs=songs.map(song=>{
+      const x=isObject(song)?deepClone(song):{};
+      delete x.deleted;
+      // Required keys are materialized with schema defaults when absent.
+      for(const [key,schema] of Object.entries(S)){
+        if(requiredForSong(key,x) && !(key in x)) x[key]=deepClone(DEFAULTS[key]);
+      }
+      if(Array.isArray(x.difficulties)){
+        x.difficulties=x.difficulties.map(d=>{
+          const y=isObject(d)?d:{};
+          for(const [key,schema] of Object.entries(D)){
+            if(schema.required && !(key in y)) y[key]=deepClone(DDEFAULT[key]);
+          }
+          return y;
+        });
+      }
+      return x;
+    });
+    sourceName=name||"songlist.json";folderGeneratedSongIds.clear();diffOpenState.clear();titleOpenState.clear();titleLangOpenState.clear();songOpenState.clear();fieldOpenState.clear();allCollapsed=false;$("toggleAll").textContent="全部折叠";if(folderFiles.length) buildFolderReport();render();
+    $("status").className="ok";$("status").textContent=`已导入 ${songs.length} 首歌曲：${sourceName}。已有键自动勾选；缺失的非必需键保持未勾选；必需键为灰色锁定勾选。`;
+  }catch(e){
+    $("status").className="error";
+    $("status").textContent="导入失败："+e.message;
+    showModal("无法导入文件",e.message);
+  }
+}
+applyTheme();
+$("themeToggle").onclick=()=>{theme=theme==="day"?"night":"day";localStorage.setItem("arcaea-songlist-theme",theme);applyTheme()};
+$("toggleAll").onclick=()=>{allCollapsed=!allCollapsed;setAllCardsExpanded(!allCollapsed);$("toggleAll").textContent=allCollapsed?"全部展开":"全部折叠";render()};
+$("filterSong").addEventListener("input",render);
+$("filterKey").addEventListener("input",render);
+$("clearFilters").onclick=()=>{$("filterSong").value="";$("filterKey").value="";render()};
+$("batchScript").onclick=openBatchModal;
+$("batchClose").onclick=closeBatchModal;
+$("batchBackdrop").addEventListener("click",e=>{if(e.target.id==="batchBackdrop")closeBatchModal()});
+$("addBatchCondition").onclick=()=>{const state=readBatchEditor();state.conditions.push({op:"ne",key:"",value:"",relation:"and"});renderBatchEditor(state)};
+$("addBatchAction").onclick=()=>{const state=readBatchEditor();state.actions.push({type:"modify",key:"",value:"",order:"asc"});renderBatchEditor(state)};
+$("batchConditions").addEventListener("click",e=>{const button=e.target.closest("[data-remove-condition]");if(!button)return;const state=readBatchEditor();state.conditions.splice(+button.dataset.removeCondition,1);renderBatchEditor(state)});
+$("batchActions").addEventListener("click",e=>{const button=e.target.closest("[data-remove-action]");if(!button)return;const state=readBatchEditor();state.actions.splice(+button.dataset.removeAction,1);renderBatchEditor(state)});
+$("batchActions").addEventListener("change",e=>{if(e.target.matches("[data-action-type]")){const state=readBatchEditor();renderBatchEditor(state)}});
+$("runBatch").onclick=executeBatchScript;
+$("modalClose").onclick=closeModal;
+$("modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal()});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if($("modalBackdrop").classList.contains("open"))closeModal();if($("batchBackdrop").classList.contains("open"))closeBatchModal()});
+$("file").addEventListener("change",e=>{const f=e.target.files[0];if(f)f.text().then(t=>loadText(t,f.name))});
+["dragenter","dragover"].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();$("drop").classList.add("drag")}));
+["dragleave","drop"].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();$("drop").classList.remove("drag")}));
+document.addEventListener("drop",e=>{
+  const f=e.dataTransfer?.files?.[0];if(f)f.text().then(t=>loadText(t,f.name));
+});
+
+$("folder").addEventListener("change",e=>{
+  folderFiles=[...e.target.files].map(f=>({name:f.name,webkitRelativePath:f.webkitRelativePath||f.name}));
+  if(!songs.length){$("status").className="error";$("status").textContent="已选择目录，但请先导入 songlist。";return}
+  buildFolderReport(); render();
+  const problems=folderReport.missingCharts.length+folderReport.missingJackets.length+folderReport.missingAudio.length+folderReport.orphanFiles.length+folderReport.orphanFolders.length;
+  $("status").className=problems?"error":"ok";
+  $("status").textContent=`目录结构索引完成：${folderFiles.length} 个文件，${songs.length} 首歌曲。仅读取文件名和相对路径；目录中没有对应文件的歌曲已默认取消勾选。`;
+});
+$("check").onclick=runValidation;
+$("clear").onclick=()=>{songs=[];folderFiles=[];folderGeneratedSongIds.clear();diffOpenState.clear();titleOpenState.clear();titleLangOpenState.clear();songOpenState.clear();fieldOpenState.clear();allCollapsed=false;$("toggleAll").textContent="全部折叠";folderReport={bySong:new Map(),missingCharts:[],missingJackets:[],missingAudio:[],orphanFiles:[],orphanFolders:[],orphanSongIds:new Set()};$("cards").innerHTML='<div class="empty">等待导入 songlist</div>';$("status").className="";$("status").textContent="已清空。"};
+$("export").onclick=()=>{
+  if(!songs.length){$("status").className="error";$("status").textContent="没有可导出的歌曲。";return}
+  if(!runValidation())return;
+  const selected=songs.filter(s=>s.__editorSelected!==false).map(s=>{
+    const x=deepClone(s); delete x.__editorSelected; delete x.deleted; return x;
+  });
+  const out=rootShape==="array"?selected:{songs:selected};
+  const blob=new Blob([JSON.stringify(out,null,2)+"\n"],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="songlist.json";a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+</script>
+</body>
+</html>
